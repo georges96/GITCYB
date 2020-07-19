@@ -1,6 +1,8 @@
 import sys
 import os
 import shutil
+from texttable import Texttable
+import re
 
 line_length = 40
 
@@ -46,8 +48,6 @@ def check_table_exists(path="./databases", database_name="test", table_name="tmp
 def insert_into_table(database, table, columns,  values):
 	ordered_values = []
 	mapping = {}
-	columns = columns[0].split(',')
-	values = values[0].split(',')
 	file_path = os.path.join("./databases", database, table + ".csv")
 
 	try:
@@ -58,23 +58,25 @@ def insert_into_table(database, table, columns,  values):
 	if len(columns) != len(values):
 		return "There is a syntax error in your query."
 
-	headers = fr.readline()
+	headers = fr.readline().strip('\n').split(',')
+	columns_type = [header.split()[1].strip('()') for header in headers]
+	return_headers = [header.split()[0] for header in headers]
+
 	fr.close()
 	fw = open(file_path, 'a')
-	headers = headers.rstrip("\n")
-	headers = headers.split(',')
-	line_to_write = "%s,"*(len(headers)-1) + "%s"
+	line_to_write = "%s,"*(len(return_headers)-1) + "%s"
 
 	for i in range(len(columns)):
 		mapping[columns[i]] = str(values[i])
 	for col in columns:
-		if col not in headers:
+		if col not in return_headers:
 			fw.close()
 			return "Column %s doesn't exist in the table"%col
 
 	
-	for header in headers:
+	for header in return_headers:
 		try:
+			#here should be a type checking(don't try to insert strings to int types)
 			ordered_values.append(mapping[header])
 		except:
 			ordered_values.append('NULL')
@@ -94,9 +96,11 @@ def select_from_table(database, table, columns_to_select, condition=[], operatio
 		return "Table could not be locked for reading"
 
 	headers = fr.readline().strip('\n').split(',')
-	if [columns_to_select] != ["*"]:
-		for col in [columns_to_select]:
-			if col not in headers:
+	columns_type = [header.split()[1].strip('()') for header in headers]
+	return_headers = [header.split()[0] for header in headers]
+	if columns_to_select != ["*"]:
+		for col in columns_to_select:
+			if col not in return_headers:
 				fr.close()
 				print ("Column(s) %s doesn't exist in the table"%col)
 				return
@@ -104,37 +108,32 @@ def select_from_table(database, table, columns_to_select, condition=[], operatio
 	if condition != []:
 		columns_to_compare_indexes = []
 		for cond in condition:
-			columns_to_compare_indexes.append(headers.index(cond))
+			columns_to_compare_indexes.append(return_headers.index(cond))
 	
 	if columns_to_select != ["*"]:
-		#the columns will be provided as a list of strings,
-		#this  is just a workaround for spliting ['a,b,c'] to ['a','b','c']
-		columns_to_select = columns_to_select.split(',')
-		set_difference = set(headers) - set(columns_to_select)
+		set_difference = set(return_headers) - set(columns_to_select)
 
 		list_difference = list(set_difference)
 		diff_indexes = []
 		for val in list_difference:
-			diff_indexes.append(headers.index(val))
-	
+			diff_indexes.append(return_headers.index(val))
 	for line in Lines:
 		precomputed_result = line.strip().split(',')
 		if condition != []:
-			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes):
+			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type):
 				continue
 		if columns_to_select != ["*"]:
 			for ind in diff_indexes:
 				precomputed_result.pop(ind)
 		
 		result.append(precomputed_result)
-	if columns_to_select != ["*"]:
-		print(('|' + ' '*int(line_length/len(columns_to_select))).join(columns_to_select) + '|')
-	else:
-		print(('|' + ' '*int(line_length/len(headers))).join(headers) + '|')
-	for res in result:
-		print(('|' + ' '*int(line_length/len(res))).join(res) + '|')
 	fr.close()
-	return headers,result
+	if columns_to_select != ["*"]:
+		return columns_to_select, result
+	else:
+		return return_headers, result
+	
+	
 
 def delete_from_table(database, table, condition=[], operation=[], values=[]):
 	count_delete = 0
@@ -146,6 +145,8 @@ def delete_from_table(database, table, condition=[], operation=[], values=[]):
 		return "Table could not be locked for reading"
 
 	headers = fr.readline().strip('\n').split(',')
+	columns_type = [header.split()[1].strip('()') for header in headers]
+	return_headers = [header.split()[0] for header in headers]
 	Lines = fr.readlines()
 	fr.close()
 	try:
@@ -155,16 +156,16 @@ def delete_from_table(database, table, condition=[], operation=[], values=[]):
 	if condition != []:
 		columns_to_compare_indexes = []
 		for cond in condition:
-			columns_to_compare_indexes.append(headers.index(cond))
+			columns_to_compare_indexes.append(return_headers.index(cond))
 	else:
 		fw.write(','.join(headers))
 		fw.close()
-		return "Found and deleted %s lines"%str(len(Lines))
+		return "Found and deleted %s line(s)"%str(len(Lines))
 	fw.write(','.join(headers))
 	for line in Lines:
 		precomputed_result = line.strip().split(',')
 		if condition != []:
-			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes):
+			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type):
 				fw.write("\n" + line.strip('\n'))
 			else:
 				count_delete+=1
@@ -183,6 +184,8 @@ def update_table(database, table, columns_to_set, values_to_set, condition=[], o
 		return "Table could not be locked for reading"
 
 	headers = fr.readline().strip('\n').split(',')
+	columns_type = [header.split()[1].strip('()') for header in headers]
+	return_headers = [header.split()[0] for header in headers]
 	Lines = fr.readlines()
 	fr.close()
 	try:
@@ -192,16 +195,16 @@ def update_table(database, table, columns_to_set, values_to_set, condition=[], o
 	
 	columns_to_set_indexes = []
 	for colts in columns_to_set:
-		columns_to_set_indexes.append(headers.index(colts))
+		columns_to_set_indexes.append(return_headers.index(colts))
 	if condition != []:
 		columns_to_compare_indexes = []
 		for cond in condition:
-			columns_to_compare_indexes.append(headers.index(cond))
+			columns_to_compare_indexes.append(return_headers.index(cond))
 	fw.write(','.join(headers))
 	for line in Lines:
 		precomputed_result = line.strip().split(',')
 		if condition != []:
-			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes):
+			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type):
 				fw.write("\n" + line.strip('\n'))
 			else:
 				seq = 0
@@ -218,20 +221,51 @@ def update_table(database, table, columns_to_set, values_to_set, condition=[], o
 			fw.write("\n" + ','.join(precomputed_result))
 			count_update+=1
 	fw.close()
-	return "Found and updated %s lines"%count_update
+	return "Found and updated %s line(s)"%count_update
 
-def line_met_condition(line=[], operation=[], values=[], columns_to_compare_indexes = []):
+def line_met_condition(line=[], operation=[], values=[], columns_to_compare_indexes = [], columns_type = []):
 	if columns_to_compare_indexes == []:
 		return True
 	for i in range(len(columns_to_compare_indexes)):
-		if operation[i]=="<":
-			if str(line[columns_to_compare_indexes[i]]) > str(values[i]):
+		#always return NULL values as we need to impute them later
+		#after the impute, if the value doesn't match the condition will be removed
+		if line[columns_to_compare_indexes[i]] == 'NULL':
+			return True
+		if columns_type[i] == 'string' or columns_type[i] == 'bool':
+			right_operand = str(values[i])
+			left_operand = str(line[columns_to_compare_indexes[i]])
+		else:
+			right_operand = int(values[i])
+			left_operand = int(line[columns_to_compare_indexes[i]])
+		if operation[i] == "<":
+			if left_operand >= right_operand:
 				return False
-		if operation[i]==">":
-			if str(line[columns_to_compare_indexes[i]]) < str(values[i]):
+		if operation[i] == ">":
+			if left_operand <= right_operand:
 				return False
-		if operation[i]=="=":
-			if str(line[columns_to_compare_indexes[i]]) != str(values[i]):
+		if operation[i] == "=":
+			if left_operand != right_operand:
+				return False
+		if operation[i] == "<=":
+			if left_operand > right_operand:
+				return False
+		if operation[i] == ">=":
+			if left_operand < right_operand:
+				return False
+		if operation[i] == "!=":
+			if left_operand == right_operand:
 				return False
 	return True
 
+
+def pretty_print(headers, results):
+	t = Texttable()
+	t.add_rows([headers]+results)
+	print(t.draw())
+
+def parse_command(command):
+	new_command = re.split('([^a-zA-Z0-9><!=])',''.join(command))
+	new_command = list(filter(lambda a: a != "", new_command))
+	new_command = list(filter(lambda a: a != ",", new_command))
+	new_command = list(filter(lambda a: a != " ", new_command))
+	return new_command
