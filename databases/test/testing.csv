@@ -1,11 +1,11 @@
 col1 (int),col2 (int),col3 (int)
 1,2,2
 4,5,2
-7,8,4
+4,8,4
 1,2,3
+2,NULL,NULL
 2,1,NULL
+NULL,1,NULL
+NULL,1,13
 2,1,NULL
-2,1,NULL
-2,1,NULL
-2,1,NULL
-2,1,NULL
+2,1,53

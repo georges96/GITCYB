@@ -5,6 +5,15 @@ from texttable import Texttable
 import re
 
 line_length = 40
+global_variables = {
+"time_quality_factor" : {"min": 0.0,
+						 "max": 1.0,
+						 "default": 0.5,
+						 "current_value": 0.5},
+"impute_method": {"allowed_values": ["average", "frequent", "no"],
+				  "default": "frequent",
+				  "current_value": "frequent"}
+}
 
 def create_database(path="./databases", name="tmp"):
 	file_path = os.path.join(path, name)
@@ -66,7 +75,7 @@ def insert_into_table(database, table, columns,  values):
 	fw = open(file_path, 'a')
 	line_to_write = "%s,"*(len(return_headers)-1) + "%s"
 
-	for i in range(len(columns)):
+	for i,val in enumerate(columns):
 		mapping[columns[i]] = str(values[i])
 	for col in columns:
 		if col not in return_headers:
@@ -226,7 +235,7 @@ def update_table(database, table, columns_to_set, values_to_set, condition=[], o
 def line_met_condition(line=[], operation=[], values=[], columns_to_compare_indexes = [], columns_type = []):
 	if columns_to_compare_indexes == []:
 		return True
-	for i in range(len(columns_to_compare_indexes)):
+	for i,val in enumerate(columns_to_compare_indexes):
 		#always return NULL values as we need to impute them later
 		#after the impute, if the value doesn't match the condition will be removed
 		if line[columns_to_compare_indexes[i]] == 'NULL':
@@ -264,8 +273,21 @@ def pretty_print(headers, results):
 	print(t.draw())
 
 def parse_command(command):
-	new_command = re.split('([^a-zA-Z0-9><!=])',''.join(command))
+	new_command = re.split('([^a-zA-Z0-9><!=_])',''.join(command))
 	new_command = list(filter(lambda a: a != "", new_command))
 	new_command = list(filter(lambda a: a != ",", new_command))
 	new_command = list(filter(lambda a: a != " ", new_command))
 	return new_command
+
+def make_imputation(data, values_to_impute_with):
+	#do not modify the content from data
+	#copy the content to temp list
+	local_data = data[:]
+	for i,val in enumerate(data):
+		local_data[i] = data[i][:]
+
+	for i, val in enumerate(local_data[0]):
+		for j, val in enumerate(local_data):
+			if local_data[j][i] == 'NULL':
+				local_data[j][i] = values_to_impute_with[i]
+	return local_data

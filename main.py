@@ -2,13 +2,17 @@ import sys
 import os
 
 import database_utils
+import impute_methods
 
 
-
-line_length = 40
 database = ""
 command = ""
-
+global_variables = database_utils.global_variables
+methods_to_impute_with = {
+"average": "impute_by_average",
+"frequent": "impute_by_most_frequent"
+}
+#getattr(impute_methods, methods_to_impute_with["frequent"])([[1,2,3],[1,3,4]])
 while command != 'exit' and command!='EXIT':
 	command = input("> ")
 	#command = command.upper()
@@ -28,6 +32,21 @@ while command != 'exit' and command!='EXIT':
 				print ("> The selected database is now: %s"%database)
 			else:
 				print ("> The database you are trying to use doesn't exist")
+		else:
+			print ("> There is a syntax error in your query")
+	#works with: SET impute_method = average
+	if to_execute[0].upper() == 'SET':
+		if len(to_execute) == 4:
+			if to_execute[1] in global_variables.keys():
+				if to_execute[2] == "=":
+					if "allowed_values" in global_variables[to_execute[1]].keys():
+						if to_execute[3] in global_variables[to_execute[1]]["allowed_values"]:
+							global_variables[to_execute[1]]["current_value"] = to_execute[3]
+							print ("> Variable %s successfully updated"%to_execute[1])
+						else:
+							print ("> The allowed values are %s "%(global_variables[to_execute[1]]["allowed_values"]))
+			else:
+				print ("> There is no such global variable")
 		else:
 			print ("> There is a syntax error in your query")
 
@@ -84,7 +103,13 @@ while command != 'exit' and command!='EXIT':
 				
 				if database_utils.check_table_exists(database_name=database, table_name=table):
 					headers,results = database_utils.select_from_table(database, table, columns_to_select, columns_to_compare, operations, values_to_compare)
-					database_utils.pretty_print(headers,results)
+					if results:
+						if global_variables['impute_method']['current_value'] != "no":
+							values_to_impute_with = getattr(impute_methods, methods_to_impute_with[global_variables['impute_method']['current_value']])(results)
+							imputed_results = database_utils.make_imputation(results, values_to_impute_with)
+							database_utils.pretty_print(headers,imputed_results)
+						else:
+							database_utils.pretty_print(headers, results)
 					print("Found and returned %s line(s)"%len(results))
 				else:
 					print ("> The table doesn't exist")
