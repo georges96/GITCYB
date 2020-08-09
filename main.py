@@ -1,9 +1,10 @@
-import sys
+
 import os
+import sys
+import time
 
 import database_utils
 import impute_methods
-
 
 database = ""
 command = ""
@@ -102,6 +103,7 @@ while command != 'exit' and command!='EXIT':
 			if database != "":
 				
 				if database_utils.check_table_exists(database_name=database, table_name=table):
+					start_time = time.time()
 					headers,results = database_utils.select_from_table(database, table, columns_to_select, columns_to_compare, operations, values_to_compare)
 					if results:
 						if global_variables['impute_method']['current_value'] != "no":
@@ -110,7 +112,9 @@ while command != 'exit' and command!='EXIT':
 							database_utils.pretty_print(headers,imputed_results)
 						else:
 							database_utils.pretty_print(headers, results)
+					end_time = time.time()
 					print("Found and returned %s line(s)"%len(results))
+					print("Query executed in %s seconds"%(end_time-start_time))
 				else:
 					print ("> The table doesn't exist")
 			else:
@@ -129,7 +133,10 @@ while command != 'exit' and command!='EXIT':
 		else:
 			pass
 		if database != "":
+			start_time = time.time()
 			print(database_utils.insert_into_table(database, table, columns_to_insert, values_to_insert))
+			end_time = time.time()
+			print("Query executed in %s seconds"%(end_time-start_time))
 		else:
 			print ("> You haven't selected any database")
 
@@ -149,7 +156,10 @@ while command != 'exit' and command!='EXIT':
 			values_to_compare.append(where_clause[i+2])
 		if database != "":
 			if database_utils.check_table_exists(database_name=database, table_name=table):
+				start_time = time.time()
 				print(database_utils.delete_from_table(database, table, columns_to_compare, operations, values_to_compare))
+				end_time = time.time()
+				print("Query executed in %s seconds"%(end_time-start_time))
 			else:
 				print ("> The table doesn't exist")
 		else:
@@ -184,7 +194,10 @@ while command != 'exit' and command!='EXIT':
 			values_to_compare.append(where_clause[i+2])
 		if database != "":
 			if database_utils.check_table_exists(database_name=database, table_name=to_execute[1]):
+				start_time = time.time()
 				print(database_utils.update_table(database, table, columns_to_update, values_to_update, columns_to_compare, operations, values_to_compare))
+				end_time = time.time()
+				print("Query executed in %s seconds"%(end_time-start_time))
 			else:
 				print ("> The table doesn't exist")
 		else:
