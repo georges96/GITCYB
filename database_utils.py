@@ -10,9 +10,21 @@ global_variables = {
 						 "max": 1.0,
 						 "default": 0.5,
 						 "current_value": 0.5},
-"impute_method": {"allowed_values": ["average", "frequent", "no"],
+"impute_method": {"allowed_values": ["average", "frequent", "no", "zeroing", "auto"],
 				  "default": "frequent",
-				  "current_value": "frequent"}
+				  "current_value": "frequent"},
+"best_effort": {"allowed_values": ["1", "0"],
+				"default": "0",
+				"current_value": "0"},
+"display_percentage": {"allowed_values": ["1", "0"],
+				"default": "0",
+				"current_value": "0"},
+"print": {"allowed_values": ["1", "0"],
+				"default": "1",
+				"current_value": "1"},
+"include_null": {"allowed_values": ["1", "0"],
+				"default": "1",
+				"current_value": "1"},
 }
 
 def create_database(path="./databases", name="tmp"):
@@ -94,7 +106,7 @@ def insert_into_table(database, table, columns,  values):
 	fw.close()
 	return "Values successfully inserted"
 
-def select_from_table(database, table, columns_to_select, condition=[], operation=[], values=[]):
+def select_from_table(database, table, columns_to_select, condition=[], operation=[], values=[], in_between=[]):
 	result = []
 	precomputed_result = []
 	file_path = os.path.join("./databases", database, table + ".csv")
@@ -129,7 +141,7 @@ def select_from_table(database, table, columns_to_select, condition=[], operatio
 	for line in Lines:
 		precomputed_result = line.strip().split(',')
 		if condition != []:
-			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type):
+			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type, in_between):
 				continue
 		if columns_to_select != ["*"]:
 			for ind in diff_indexes:
@@ -138,13 +150,13 @@ def select_from_table(database, table, columns_to_select, condition=[], operatio
 		result.append(precomputed_result)
 	fr.close()
 	if columns_to_select != ["*"]:
-		return columns_to_select, result
+		return columns_to_select, result, columns_type
 	else:
-		return return_headers, result
+		return return_headers, result, columns_type
 	
 	
 
-def delete_from_table(database, table, condition=[], operation=[], values=[]):
+def delete_from_table(database, table, condition=[], operation=[], values=[], in_between = []):
 	count_delete = 0
 	precomputed_result = []
 	file_path = os.path.join("./databases", database, table + ".csv")
@@ -174,7 +186,7 @@ def delete_from_table(database, table, condition=[], operation=[], values=[]):
 	for line in Lines:
 		precomputed_result = line.strip().split(',')
 		if condition != []:
-			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type):
+			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type, in_between):
 				fw.write("\n" + line.strip('\n'))
 			else:
 				count_delete+=1
@@ -183,7 +195,7 @@ def delete_from_table(database, table, condition=[], operation=[], values=[]):
 	return "Found and deleted %s lines"%count_delete
 
 
-def update_table(database, table, columns_to_set, values_to_set, condition=[], operation=[], values=[]):
+def update_table(database, table, columns_to_set, values_to_set, condition=[], operation=[], values=[], in_between=[]):
 	count_update = 0
 	precomputed_result = []
 	file_path = os.path.join("./databases", database, table + ".csv")
@@ -213,7 +225,7 @@ def update_table(database, table, columns_to_set, values_to_set, condition=[], o
 	for line in Lines:
 		precomputed_result = line.strip().split(',')
 		if condition != []:
-			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type):
+			if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type, in_between):
 				fw.write("\n" + line.strip('\n'))
 			else:
 				seq = 0
@@ -232,48 +244,59 @@ def update_table(database, table, columns_to_set, values_to_set, condition=[], o
 	fw.close()
 	return "Found and updated %s line(s)"%count_update
 
-def line_met_condition(line=[], operation=[], values=[], columns_to_compare_indexes = [], columns_type = []):
+def line_met_condition(line=[], operation=[], values=[], columns_to_compare_indexes=[], columns_type=[], in_between=[]):
 	if columns_to_compare_indexes == []:
 		return True
+
+	eval_condition = "%s "
+	for condition in in_between:
+		eval_condition+=condition+" %s "
+	
 	for i,val in enumerate(columns_to_compare_indexes):
 		#always return NULL values as we need to impute them later
 		#after the impute, if the value doesn't match the condition will be removed
+		line_ok = True
 		if line[columns_to_compare_indexes[i]] == 'NULL':
-			return True
+			line_ok = True
 		if columns_type[i] == 'string' or columns_type[i] == 'bool':
 			right_operand = str(values[i])
 			left_operand = str(line[columns_to_compare_indexes[i]])
 		else:
-			right_operand = int(values[i])
-			left_operand = int(line[columns_to_compare_indexes[i]])
+			right_operand = int(float(values[i]))
+			left_operand = int(float(line[columns_to_compare_indexes[i]]))
 		if operation[i] == "<":
 			if left_operand >= right_operand:
-				return False
+				line_ok = False
 		if operation[i] == ">":
 			if left_operand <= right_operand:
-				return False
+				line_ok = False
 		if operation[i] == "=":
 			if left_operand != right_operand:
-				return False
+				line_ok = False
 		if operation[i] == "<=":
 			if left_operand > right_operand:
-				return False
+				line_ok = False
 		if operation[i] == ">=":
 			if left_operand < right_operand:
-				return False
+				line_ok = False
 		if operation[i] == "!=":
 			if left_operand == right_operand:
-				return False
-	return True
+				line_ok = False
+		eval_condition = eval_condition.replace("%s", str(line_ok), 1)
+	return eval(eval_condition)
 
 
-def pretty_print(headers, results):
+def pretty_print(headers, results, percentage=[[]]):
 	t = Texttable()
-	t.add_rows([headers]+results)
+	print(percentage)
+	if percentage != [[]]:
+		t.add_rows([headers]+results+[percentage])
+	else:
+		t.add_rows([headers]+results)
 	print(t.draw())
 
 def parse_command(command):
-	new_command = re.split('([^a-zA-Z0-9><!=_])',''.join(command))
+	new_command = re.split('([^a-zA-Z0-9><!=_.])',''.join(command))
 	new_command = list(filter(lambda a: a != "", new_command))
 	new_command = list(filter(lambda a: a != ",", new_command))
 	new_command = list(filter(lambda a: a != " ", new_command))
@@ -291,3 +314,15 @@ def make_imputation(data, values_to_impute_with):
 			if local_data[j][i] == 'NULL':
 				local_data[j][i] = values_to_impute_with[i]
 	return local_data
+
+def count_null_percentage(data):
+	row_length = len(data[0])
+	no_of_rows = len(data)
+	percentage = [0]*row_length
+	for i, val in enumerate(data[0]):
+		for j in range(no_of_rows):
+			if data[j][i] == 'NULL':
+				
+				percentage[i] += 1
+	return [str(round(value/no_of_rows*100, 2)) for value in percentage]
+	

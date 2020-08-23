@@ -8,12 +8,13 @@ import impute_methods
 
 database = ""
 command = ""
+percentage = [[]]
 global_variables = database_utils.global_variables
 methods_to_impute_with = {
 "average": "impute_by_average",
-"frequent": "impute_by_most_frequent"
+"frequent": "impute_by_most_frequent",
+"zeroing": "impute_by_zeroing"
 }
-#getattr(impute_methods, methods_to_impute_with["frequent"])([[1,2,3],[1,3,4]])
 while command != 'exit' and command!='EXIT':
 	command = input("> ")
 	#command = command.upper()
@@ -90,28 +91,47 @@ while command != 'exit' and command!='EXIT':
 		operations = []
 		values_to_compare = []
 		where_clause = []
+		in_between_clause = []
+		l = 0
 		try:
 			columns_to_select = to_execute[to_execute.index('SELECT')+1:to_execute.index('FROM')]
 			table = to_execute[to_execute.index('FROM')+1]
 			if 'WHERE' in to_execute:
 				where_clause = to_execute[to_execute.index('WHERE')+1:]
 			for i in range(0, len(where_clause), 3):
-				columns_to_compare.append(where_clause[i])
-				operations.append(where_clause[i+1])
-				values_to_compare.append(where_clause[i+2])
-			print (columns_to_compare, operations, values_to_compare)
+				columns_to_compare.append(where_clause[i+l])
+				operations.append(where_clause[i+1+l])
+				values_to_compare.append(where_clause[i+2+l])
+				try:
+					in_between = where_clause[i+3+l]
+					if in_between in ["and", "or"]:
+						in_between_clause.append(in_between)
+						l+=1
+				except Exception as e:
+					break
+
 			if database != "":
 				
 				if database_utils.check_table_exists(database_name=database, table_name=table):
 					start_time = time.time()
-					headers,results = database_utils.select_from_table(database, table, columns_to_select, columns_to_compare, operations, values_to_compare)
+					headers,results,data_types = database_utils.select_from_table(database, table, columns_to_select, columns_to_compare, operations, values_to_compare, in_between_clause)
 					if results:
 						if global_variables['impute_method']['current_value'] != "no":
-							values_to_impute_with = getattr(impute_methods, methods_to_impute_with[global_variables['impute_method']['current_value']])(results)
+							values_to_impute_with = getattr(impute_methods, methods_to_impute_with[global_variables['impute_method']['current_value']])(results, data_types)
 							imputed_results = database_utils.make_imputation(results, values_to_impute_with)
-							database_utils.pretty_print(headers,imputed_results)
+							if global_variables['best_effort']['current_value'] == "1":
+								values_to_impute_with = getattr(impute_methods, 'impute_by_zeroing')(imputed_results, data_types)
+								imputed_results_best = database_utils.make_imputation(imputed_results, values_to_impute_with)
+								imputed_results = imputed_results_best
+							if global_variables['print']['current_value'] == "1":
+								if global_variables['display_percentage']['current_value'] == "1":
+									percentage = database_utils.count_null_percentage(results)
+								database_utils.pretty_print(headers,imputed_results, percentage)
 						else:
-							database_utils.pretty_print(headers, results)
+							if global_variables['print']['current_value'] == "1":
+								if global_variables['display_percentage']['current_value'] == "1":
+									percentage = database_utils.count_null_percentage(results)
+								database_utils.pretty_print(headers, results, percentage)
 					end_time = time.time()
 					print("Found and returned %s line(s)"%len(results))
 					print("Query executed in %s seconds"%(end_time-start_time))
@@ -127,11 +147,13 @@ while command != 'exit' and command!='EXIT':
 	if to_execute[0].upper() == 'INSERT' and to_execute[1].upper() == 'INTO':
 		if 'INTO' in to_execute:
 			table = to_execute[to_execute.index('INTO')+1]
+
 		if 'VALUES' in to_execute:
 			columns_to_insert = to_execute[to_execute.index('INTO')+2:to_execute.index('VALUES')]
 			values_to_insert = to_execute[to_execute.index('VALUES')+1:]
 		else:
 			pass
+
 		if database != "":
 			start_time = time.time()
 			print(database_utils.insert_into_table(database, table, columns_to_insert, values_to_insert))
@@ -148,16 +170,19 @@ while command != 'exit' and command!='EXIT':
 		values_to_compare = []
 		where_clause = []
 		table = to_execute[to_execute.index('FROM')+1]
+
 		if 'WHERE' in to_execute:
 			where_clause = to_execute[to_execute.index('WHERE')+1:]
+
 		for i in range(0, len(where_clause), 3):
 			columns_to_compare.append(where_clause[i])
 			operations.append(where_clause[i+1])
 			values_to_compare.append(where_clause[i+2])
+
 		if database != "":
 			if database_utils.check_table_exists(database_name=database, table_name=table):
 				start_time = time.time()
-				print(database_utils.delete_from_table(database, table, columns_to_compare, operations, values_to_compare))
+				print(database_utils.delete_from_table(database, table, columns_to_compare, operations, values_to_compare, in_between_clause))
 				end_time = time.time()
 				print("Query executed in %s seconds"%(end_time-start_time))
 			else:
@@ -184,18 +209,20 @@ while command != 'exit' and command!='EXIT':
 			set_columns_values = to_execute[to_execute.index('SET')+1:to_execute.index('WHERE')]
 		else:
 			set_columns_values = to_execute[to_execute.index('SET')+1:]
-		print (set_columns_values)
+
 		for i in range (0, len(set_columns_values),3):
 			columns_to_update.append(set_columns_values[i])
 			values_to_update.append(set_columns_values[i+2])
+
 		for i in range(0, len(where_clause), 3):
 			columns_to_compare.append(where_clause[i])
 			operations.append(where_clause[i+1])
 			values_to_compare.append(where_clause[i+2])
+
 		if database != "":
 			if database_utils.check_table_exists(database_name=database, table_name=to_execute[1]):
 				start_time = time.time()
-				print(database_utils.update_table(database, table, columns_to_update, values_to_update, columns_to_compare, operations, values_to_compare))
+				print(database_utils.update_table(database, table, columns_to_update, values_to_update, columns_to_compare, operations, values_to_compare, in_between_clause))
 				end_time = time.time()
 				print("Query executed in %s seconds"%(end_time-start_time))
 			else:
