@@ -10,7 +10,7 @@ global_variables = {
                             "max": 1.0,
                             "default": 0.5,
                             "current_value": 0.5},
-    "impute_method": {"allowed_values": ["average", "frequent", "no", "zeroing", "auto"],
+    "impute_method": {"allowed_values": ["average", "frequent", "no", "zeroing", "auto", "knn", "ml"],
                       "default": "frequent",
                       "current_value": "frequent"},
     "best_effort": {"allowed_values": ["1", "0"],
@@ -295,7 +295,6 @@ def line_met_condition(line=[], operation=[], values=[], columns_to_compare_inde
 
 def pretty_print(headers, results, percentage=[[]]):
     t = Texttable()
-    print(percentage)
     if percentage != [[]]:
         t.add_rows([headers]+results+[percentage])
     else:

@@ -1,4 +1,4 @@
-cnt (int),t1 (int),t2 (int),hum (int),wind_speed (int),weather_code (int),is_holiday (int),is_weekend (int),season (int)
+cnt (int),t1 (float),t2 (float),hum (float),wind_speed (float),weather_code (int),is_holiday (int),is_weekend (int),season (int)
 182,3.0,2.0,NULL,6.0,NULL,NULL,1.0,3.0
 138,3.0,2.5,NULL,NULL,1.0,0.0,1.0,NULL
 134,2.5,2.5,96.5,NULL,NULL,0.0,1.0,NULL

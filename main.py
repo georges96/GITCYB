@@ -13,7 +13,9 @@ global_variables = database_utils.global_variables
 methods_to_impute_with = {
     "average": "impute_by_average",
     "frequent": "impute_by_most_frequent",
-    "zeroing": "impute_by_zeroing"
+    "zeroing": "impute_by_zeroing",
+    "knn": "impute_by_knn",
+    "ml": "impute_by_ml"
 }
 while command != 'exit' and command != 'EXIT':
     command = input("> ")
@@ -71,7 +73,7 @@ while command != 'exit' and command != 'EXIT':
             ok = 1
             for i in range(3, len(to_execute)-3, 4):
                 if (len(to_execute)-3) % 4 == 0:
-                    if to_execute[i] and to_execute[i+1] == '(' and to_execute[i+2] in ('string', 'int', 'bool') and to_execute[i+3] == ')':
+                    if to_execute[i] and to_execute[i+1] == '(' and to_execute[i+2] in ('string', 'int', 'bool', 'float') and to_execute[i+3] == ')':
                         headers.append(
                             " ".join((to_execute[i], "".join(to_execute[i+1:i+4]))))
                     else:
@@ -125,16 +127,21 @@ while command != 'exit' and command != 'EXIT':
                         database, table, columns_to_select, columns_to_compare, operations, values_to_compare, in_between_clause)
                     if results:
                         if global_variables['impute_method']['current_value'] != "no":
-                            values_to_impute_with = getattr(
-                                impute_methods, methods_to_impute_with[global_variables['impute_method']['current_value']])(results, data_types)
-                            imputed_results = database_utils.make_imputation(
-                                results, values_to_impute_with)
-                            if global_variables['best_effort']['current_value'] == "1":
+                            if global_variables['impute_method']['current_value'] in ["knn", "ml"]:
+                                imputed_results = getattr(
+                                    impute_methods, methods_to_impute_with[global_variables['impute_method']['current_value']])(results, data_types)
+                            else:
+                            
                                 values_to_impute_with = getattr(
-                                    impute_methods, 'impute_by_zeroing')(imputed_results, data_types)
-                                imputed_results_best = database_utils.make_imputation(
-                                    imputed_results, values_to_impute_with)
-                                imputed_results = imputed_results_best
+                                    impute_methods, methods_to_impute_with[global_variables['impute_method']['current_value']])(results, data_types)
+                                imputed_results = database_utils.make_imputation(
+                                    results, values_to_impute_with)
+                                if global_variables['best_effort']['current_value'] == "1":
+                                    values_to_impute_with = getattr(
+                                        impute_methods, 'impute_by_zeroing')(imputed_results, data_types)
+                                    imputed_results_best = database_utils.make_imputation(
+                                        imputed_results, values_to_impute_with)
+                                    imputed_results = imputed_results_best
                             if global_variables['print']['current_value'] == "1":
                                 if global_variables['display_percentage']['current_value'] == "1":
                                     percentage = database_utils.count_null_percentage(

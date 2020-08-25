@@ -1,18 +1,21 @@
 import numpy as np
 from sklearn.impute import KNNImputer
+from sklearn.impute import SimpleImputer
+#import datawig
 
 
 def impute_by_average(data, data_types):
     sum_something = [int(float(x)) if x != 'NULL' else 0 for x in data[0]]
-    print(sum_something)
     row_length = len(data[0])
     no_of_rows = len(data)
     for i, val in enumerate(data[0]):
         for j in range(1, no_of_rows):
-            if data[j][i] != 'NULL':
-                sum_something[i] += int(float(data[j][i]))
-    print([float(value/no_of_rows) for value in sum_something])
-    return [float(value/no_of_rows) for value in sum_something]
+            if data[j][i] != 'NULL':	
+                if data_types[i] == 'int':
+                    sum_something[i] += int(float(data[j][i]))
+                else:
+                    sum_something[i] += float(data[j][i])
+    return [float(value/no_of_rows) if data_types[i] == 'float' else int(value/no_of_rows) for i,value in enumerate(sum_something)]
 
 
 def impute_by_zeroing(data, data_types):
@@ -55,6 +58,28 @@ def impute_by_most_frequent(data, data_types):
 
 def impute_by_knn(data, data_types):
     nan = np.nan
-    X = [[1, 2, nan], [3, 4, 3], [nan, 6, 5], [8, 8, 7]]
+    row_length = len(data[0])
+    no_of_rows = len(data)
+
+    for i in range(row_length):
+        for j in range(no_of_rows):
+            if data[j][i] == 'NULL':
+                data[j][i] = np.nan
+
     imputer = KNNImputer(n_neighbors=2, weights="uniform")
-    print(imputer.fit_transform(X))
+    final_data = list(imputer.fit_transform(data))
+    for i in range(len(final_data[0])):
+        for j in range (len(final_data)):
+            if data_types[i] == 'float':
+                final_data[j][i] = str(float(final_data[j][i]))
+            else:
+                final_data[j][i] = str(int(float(final_data[j][i])))
+
+    return final_data
+
+#def impute_by_ml(data, data_types):
+#   
+#    # impute missing values
+#    df_with_missing_imputed = datawig.SimpleImputer.complete(data)
+#    return df_with_missing_imputed
+
