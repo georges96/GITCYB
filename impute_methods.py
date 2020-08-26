@@ -1,8 +1,8 @@
 import numpy as np
 from sklearn.impute import KNNImputer
 from sklearn.impute import SimpleImputer
-#import datawig
-
+import datawig
+import pandas as pd
 
 def impute_by_average(data, data_types):
     sum_something = [int(float(x)) if x != 'NULL' else 0 for x in data[0]]
@@ -77,9 +77,24 @@ def impute_by_knn(data, data_types):
 
     return final_data
 
-#def impute_by_ml(data, data_types):
-#   
-#    # impute missing values
-#    df_with_missing_imputed = datawig.SimpleImputer.complete(data)
-#    return df_with_missing_imputed
+def impute_by_ml(data, data_types):
+    nan = np.nan
+    row_length = len(data[0])
+    no_of_rows = len(data)
 
+    for i in range(row_length):
+        for j in range(no_of_rows):
+            if data[j][i] == 'NULL':
+                data[j][i] =  None
+            pass
+    df = pd.DataFrame(data)
+    df = df.fillna(value=np.NaN)
+    df.columns = [str(x) for x in range(row_length)]
+    missing_df = df.mask(df ==  np.NaN)
+
+    df_with_missing_imputed = datawig.SimpleImputer.complete(missing_df)
+    final_data = df_with_missing_imputed
+    print(final_data.values.tolist())
+    return final_data.values.tolist()
+
+#SELECT cnt,t2,hum FROM london_bike_sharingcsv_nulled WHERE cnt = 1357 or cnt >= 1819 and cnt <= 1821

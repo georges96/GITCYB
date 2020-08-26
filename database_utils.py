@@ -11,8 +11,8 @@ global_variables = {
                             "default": 0.5,
                             "current_value": 0.5},
     "impute_method": {"allowed_values": ["average", "frequent", "no", "zeroing", "auto", "knn", "ml"],
-                      "default": "frequent",
-                      "current_value": "frequent"},
+                      "default": "ml",
+                      "current_value": "ml"},
     "best_effort": {"allowed_values": ["1", "0"],
                     "default": "0",
                     "current_value": "0"},
@@ -150,7 +150,7 @@ def select_from_table(database, table, columns_to_select, condition=[], operatio
             if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type, in_between):
                 continue
         if columns_to_select != ["*"]:
-            for ind in diff_indexes:
+            for ind in sorted(diff_indexes, reverse=True):
                 precomputed_result.pop(ind)
 
         result.append(precomputed_result)
@@ -264,13 +264,16 @@ def line_met_condition(line=[], operation=[], values=[], columns_to_compare_inde
         # after the impute, if the value doesn't match the condition will be removed
         line_ok = True
         if line[columns_to_compare_indexes[i]] == 'NULL':
-            line_ok = True
+            line_ok = False
         if columns_type[i] == 'string' or columns_type[i] == 'bool':
             right_operand = str(values[i])
             left_operand = str(line[columns_to_compare_indexes[i]])
         else:
-            right_operand = int(float(values[i]))
-            left_operand = int(float(line[columns_to_compare_indexes[i]]))
+            if line[columns_to_compare_indexes[i]] != 'NULL':
+                right_operand = int(float(values[i]))
+                left_operand = int(float(line[columns_to_compare_indexes[i]]))
+            else:
+                return False
         if operation[i] == "<":
             if left_operand >= right_operand:
                 line_ok = False
