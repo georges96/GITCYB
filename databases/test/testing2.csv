@@ -1,4 +1,6 @@
 col1 (int),col2 (int),col3 (float)
-NULL,2,3
-4,NULL,7
-7,8,NULL
+9,2,3
+4,12,7
+NULL,8,12
+1,9,12
+13,NULL,77

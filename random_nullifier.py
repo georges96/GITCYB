@@ -35,8 +35,8 @@ def random_nullifier(path_to_csv, number_of_values=1, ignore_columns=[]):
         fw.close()
         print("Write operation cannot be performed")
     fw.write(','.join(headers))
-    Lines = fr.readlines()
-    for line in Lines:
+    lines = fr.readlines()
+    for line in lines:
         no_v = number_of_values
         precomputed_result = line.strip().split(',')
         while no_v > 0:

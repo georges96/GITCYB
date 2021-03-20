@@ -3,6 +3,7 @@ import os
 import shutil
 from texttable import Texttable
 import re
+import numpy as np
 
 line_length = 40
 global_variables = {
@@ -11,8 +12,8 @@ global_variables = {
                             "default": 0.5,
                             "current_value": 0.5},
     "impute_method": {"allowed_values": ["average", "frequent", "no", "zeroing", "auto", "knn", "ml"],
-                      "default": "ml",
-                      "current_value": "ml"},
+                      "default": "knn",
+                      "current_value": "knn"},
     "best_effort": {"allowed_values": ["1", "0"],
                     "default": "0",
                     "current_value": "0"},
@@ -112,7 +113,7 @@ def insert_into_table(database, table, columns,  values):
     return "Values successfully inserted"
 
 
-def select_from_table(database, table, columns_to_select, condition=[], operation=[], values=[], in_between=[]):
+def select_from_table(database, table, columns_to_select, condition=[], operation=[], values=[], in_between=[], include_null=False):
     result = []
     precomputed_result = []
     file_path = os.path.join("./databases", database, table + ".csv")
@@ -147,7 +148,7 @@ def select_from_table(database, table, columns_to_select, condition=[], operatio
     for line in Lines:
         precomputed_result = line.strip().split(',')
         if condition != []:
-            if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type, in_between):
+            if not line_met_condition(precomputed_result, operation, values, columns_to_compare_indexes, columns_type, in_between, include_null):
                 continue
         if columns_to_select != ["*"]:
             for ind in sorted(diff_indexes, reverse=True):
@@ -251,7 +252,7 @@ def update_table(database, table, columns_to_set, values_to_set, condition=[], o
     return "Found and updated %s line(s)" % count_update
 
 
-def line_met_condition(line=[], operation=[], values=[], columns_to_compare_indexes=[], columns_type=[], in_between=[]):
+def line_met_condition(line=[], operation=[], values=[], columns_to_compare_indexes=[], columns_type=[], in_between=[], include_null=False):
     if columns_to_compare_indexes == []:
         return True
 
@@ -264,7 +265,7 @@ def line_met_condition(line=[], operation=[], values=[], columns_to_compare_inde
         # after the impute, if the value doesn't match the condition will be removed
         line_ok = True
         if line[columns_to_compare_indexes[i]] == 'NULL':
-            line_ok = False
+            line_ok = include_null
         if columns_type[i] == 'string' or columns_type[i] == 'bool':
             right_operand = str(values[i])
             left_operand = str(line[columns_to_compare_indexes[i]])
@@ -273,7 +274,7 @@ def line_met_condition(line=[], operation=[], values=[], columns_to_compare_inde
                 right_operand = int(float(values[i]))
                 left_operand = int(float(line[columns_to_compare_indexes[i]]))
             else:
-                return False
+                return include_null
         if operation[i] == "<":
             if left_operand >= right_operand:
                 line_ok = False
@@ -333,7 +334,7 @@ def count_null_percentage(data):
     percentage = [0]*row_length
     for i, val in enumerate(data[0]):
         for j in range(no_of_rows):
-            if data[j][i] == 'NULL':
+            if data[j][i] == 'NULL' or data[j][i]==np.NaN:
 
                 percentage[i] += 1
     return [str(round(value/no_of_rows*100, 2)) for value in percentage]

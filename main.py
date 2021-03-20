@@ -81,7 +81,7 @@ while command != 'exit' and command != 'EXIT':
                 else:
                     ok = 0
             if not ok:
-                print("> There is an error in your syntax. Define the column as column_name(type) where type is on of 'string', 'bool', 'int'")
+                print("> There is an error in your syntax. Define the column as column_name(type) where type is one of 'string', 'bool', 'int'")
             else:
                 headers = ",".join(headers)
                 print("> " + database_utils.make_table("./databases",
@@ -124,14 +124,38 @@ while command != 'exit' and command != 'EXIT':
                 if database_utils.check_table_exists(database_name=database, table_name=table):
                     start_time = time.time()
                     headers, results, data_types = database_utils.select_from_table(
-                        database, table, columns_to_select, columns_to_compare, operations, values_to_compare, in_between_clause)
+                        database, table, columns_to_select, columns_to_compare, operations, 
+						values_to_compare, in_between_clause, include_null=global_variables['include_null']['current_value']=='1')
                     if results:
+                        if global_variables['display_percentage']['current_value'] == "1":
+                                    percentage = database_utils.count_null_percentage(
+                                        results)
                         if global_variables['impute_method']['current_value'] != "no":
-                            if global_variables['impute_method']['current_value'] in ["knn", "ml"]:
+                            if global_variables['impute_method']['current_value'] == "auto":
+                                if 'string' in headers:
+                                    values_to_impute_with = getattr(
+                                    impute_methods, methods_to_impute_with['frequent'])(results, data_types)
+                                    imputed_results1 = database_utils.make_imputation(
+                                    results, values_to_impute_with)
+                                    values_to_impute_with = getattr(
+                                        impute_methods, 'impute_by_zeroing')(imputed_results1, data_types)
+                                    imputed_results_best = database_utils.make_imputation(
+                                        imputed_results, values_to_impute_with)
+                                    imputed_results = imputed_results_best
+                                else:
+                                    values_to_impute_with = getattr(
+                                    impute_methods, methods_to_impute_with['knn'])(results, data_types)
+                                    imputed_results1 = database_utils.make_imputation(
+                                    results, values_to_impute_with)
+                                    values_to_impute_with = getattr(
+                                        impute_methods, 'impute_by_zeroing')(imputed_results1, data_types)
+                                    imputed_results_best = database_utils.make_imputation(
+                                        imputed_results, values_to_impute_with)
+                                    imputed_results = imputed_results_best
+                            elif global_variables['impute_method']['current_value'] in ["knn", "ml"]:
                                 imputed_results = getattr(
                                     impute_methods, methods_to_impute_with[global_variables['impute_method']['current_value']])(results, data_types)
                             else:
-                            
                                 values_to_impute_with = getattr(
                                     impute_methods, methods_to_impute_with[global_variables['impute_method']['current_value']])(results, data_types)
                                 imputed_results = database_utils.make_imputation(
@@ -143,16 +167,13 @@ while command != 'exit' and command != 'EXIT':
                                         imputed_results, values_to_impute_with)
                                     imputed_results = imputed_results_best
                             if global_variables['print']['current_value'] == "1":
-                                if global_variables['display_percentage']['current_value'] == "1":
-                                    percentage = database_utils.count_null_percentage(
-                                        results)
+                                #if global_variables['display_percentage']['current_value'] == "1":
+                                #    percentage = database_utils.count_null_percentage(
+                                #        results)
                                 database_utils.pretty_print(
                                     headers, imputed_results, percentage)
                         else:
                             if global_variables['print']['current_value'] == "1":
-                                if global_variables['display_percentage']['current_value'] == "1":
-                                    percentage = database_utils.count_null_percentage(
-                                        results)
                                 database_utils.pretty_print(
                                     headers, results, percentage)
                     end_time = time.time()
